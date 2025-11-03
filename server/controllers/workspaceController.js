@@ -4,7 +4,9 @@ import prisma from "../configs/prisma.js";
 
 export const getUserWorkspaces = async (req, res) => {
   try {
-    const { userId } = await req.auth();
+    const { userId } = req.auth;
+    console.log("🔍 Fetching workspaces for user:", userId);
+
     const workspaces = await prisma.workspace.findMany({
       where: {
         members: { some: { userId: userId } },
@@ -26,14 +28,16 @@ export const getUserWorkspaces = async (req, res) => {
       },
     });
 
+    console.log("✅ Workspaces fetched:", JSON.stringify(workspaces, null, 2));
     res.json({ workspaces });
   } catch (error) {
-    console.log(error);
+    console.error("❌ Error in getUserWorkspaces:", error);
     res.status(500).json({
       message: error.code || error.message || "Internal Server Error",
     });
   }
 };
+
 
 // Add member to workspace
 

@@ -148,7 +148,7 @@ const workspaceSlice = createSlice({
                   : p
               ),
             }
-          : w
+          : w      
       );
     },
   },
@@ -159,7 +159,7 @@ const workspaceSlice = createSlice({
 
     builder.addCase(fetchWorkspaces.fulfilled, (state, action) => {
       state.workspaces = action.payload;
-      if (action.payload.lemgth > 0) {
+      if (action.payload.length > 0) {
         const localStorageCurrentWorkspaceId =
           localStorage.getItem("currentWorkspaceId");
 
