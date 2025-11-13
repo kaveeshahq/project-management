@@ -7,6 +7,7 @@ import { inngest, functions } from "./inngest/index.js";
 import workspaceRouter from "./routes/workspaceRoute.js";
 import { protect } from "./middlewares/authMiddleware.js";
 import projectRouter from "./routes/projectRoutes.js";
+import taskRouter from "./routes/taskRoutes.js";
 
 const app = express();
 
@@ -21,6 +22,8 @@ app.use("/api/inngest", serve({ client: inngest, functions }));
 
 app.use("/api/workspaces", protect, workspaceRouter);
 app.use("/api/projects", protect, projectRouter);
+app.use("/api/tasks", protect, taskRouter);
+
 
 const PORT = process.env.PORT || 5000;
 
