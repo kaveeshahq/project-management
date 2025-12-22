@@ -1,5 +1,6 @@
 import { Inngest } from "inngest";
 import prisma from "../configs/prisma.js";
+import sendEmail from "../configs/nodemailor.js";
 
 // Create a client to send and receive events
 export const inngest = new Inngest({ id: "project-management" });
@@ -111,35 +112,103 @@ const syncWorkspaceUpdation = inngest.createFunction(
 // Inngest function to delete workspace data from db
 
 const syncWorkspaceDeletion = inngest.createFunction(
-    {id : "delete-workspace-with-clerk"},
-    {event : "clerk/organization.deleted"},
-    async ({event}) => {
-        const {data} = event ;
-        await prisma.workspace.delete({
-            where : { 
-                id : data.id,
-            }
-        })
-    }
+  { id: "delete-workspace-with-clerk" },
+  { event: "clerk/organization.deleted" },
+  async ({ event }) => {
+    const { data } = event;
+    await prisma.workspace.delete({
+      where: {
+        id: data.id,
+      },
+    });
+  }
 );
 
 // Inngest func to save workspace member data to db
 
 const syncWorkspaceMemberCreation = inngest.createFunction(
-    {id : "sync-workspace-member-from-clerk"},
-    {event : "clerk/organizationInvitation.accepted"},
-    async ({event}) => {
-        const {data} = event ;
-        await prisma.workspaceMember.create({
-            data :{
-                userId : data.user_id,
-                workspaceId: data.organization_id,
-                role: String(data.role_name).toUpperCase(),
-            }
-        })
-    }
-)
+  { id: "sync-workspace-member-from-clerk" },
+  { event: "clerk/organizationInvitation.accepted" },
+  async ({ event }) => {
+    const { data } = event;
+    await prisma.workspaceMember.create({
+      data: {
+        userId: data.user_id,
+        workspaceId: data.organization_id,
+        role: String(data.role_name).toUpperCase(),
+      },
+    });
+  }
+);
 
+// Ingest function to send email on task creation
+const sendTaskAssignmentEmail = inngest.createFunction(
+  { id: "send-task-assignment-email" },
+  { event: "app/task.assigned" },
+
+  async ({ event, step }) => {
+    const { taskId, origin } = event.data;
+
+    const task = await prisma.task.findUnique({
+      where: { id: taskId },
+      include: { assignee: true, project: true },
+    });
+
+    await sendEmail({
+      to: task.assignee.email,
+      subject: `New Task Assigned in ${task.project.name}`,
+      body: `Hello ${task.assignee.name},
+
+You have been assigned a new task titled "${task.title}".
+
+Due Date: ${new Date(task.due_date).toLocaleDateString()}
+
+Please click <a href="${origin}/tasks/${
+        task.id
+      }">here</a> to view the task details.
+
+Best regards,
+Task Management System`,
+    });
+
+    if (
+      new Date(task.due_date).toLocaleDateString() !==
+      new Date().toLocaleDateString()
+    ) {
+      await step.sleepUntil("wait-for-the-due-date", new Date(task.due_date));
+
+      await step.run("check-task-completion", async () => {
+        const task = await prisma.task.findUnique({
+          where: { id: taskId },
+          include: { assignee: true, project: true },
+        });
+
+        if (!task) return;
+
+        if (task.status !== "DONE") {
+          await step.run("send-task-reminder-email", async () => {
+            await sendEmail({
+              to: task.assignee.email,
+              subject: `Reminder: Task "${task.title}" is Due Today`,
+              body: `Hello ${task.assignee.name},
+
+This is a friendly reminder that the task titled "${task.title}" is due today.
+
+Please ensure the task is completed on time. You can view the task details by clicking the link below:
+
+<a href="${origin}/tasks/${task.id}">View Task</a>
+
+If you have already completed this task, please disregard this message.
+
+Best regards,
+Task Management System`,
+            });
+          });
+        }
+      });
+    }
+  }
+);
 
 export const functions = [
   syncUserCreation,
@@ -148,5 +217,6 @@ export const functions = [
   syncWorkspaceCreation,
   syncWorkspaceUpdation,
   syncWorkspaceDeletion,
-  syncWorkspaceMemberCreation
+  syncWorkspaceMemberCreation,
+  sendTaskAssignmentEmail,
 ];

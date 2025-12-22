@@ -27,6 +27,6 @@ app.use("/api/tasks", protect, taskRouter);
 app.use("/api/comments", protect, commentRouter);
 
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 4000;
 
 app.listen(PORT, () => console.log(`Server Running on ${PORT}`));
