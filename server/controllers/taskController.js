@@ -1,4 +1,5 @@
 import prisma from "../configs/prisma.js";
+import { inngest } from "../inngest/index.js";
 
 // create task
 export const createTask = async (req, res) => {
@@ -54,6 +55,13 @@ export const createTask = async (req, res) => {
       where: { id: task.id },
       include: { assignee: true },
     });
+
+    await inngest.send({
+      name : "app/task.assigned",
+      data : {
+        taskId :  task.id,origin
+      }
+    })
 
     res.json({ task: taskWithAssignee, message: "Task Created Successfully" });
   } catch (error) {
@@ -136,5 +144,6 @@ export const deleteTask = async (req, res) => {
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
+
 
 
